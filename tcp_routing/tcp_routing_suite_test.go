@@ -81,8 +81,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred(), "Routing API is unavailable")
 	domainName = fmt.Sprintf("%s.%s", generator.PrefixedRandomName("TCP", "DOMAIN"), routingConfig.AppsDomain)
 	cfworkflow_helpers.AsUser(context.AdminUserContext(), context.ShortTimeout(), func() {
-		routerGroupGuid := getRouterGroupGuid(routingApiClient)
-		routing_helpers.CreateSharedDomain(domainName, routerGroupGuid, DEFAULT_TIMEOUT)
+		routerGroupName := getRouterGroupName(routingApiClient)
+		routing_helpers.CreateSharedDomain(domainName, routerGroupName, DEFAULT_TIMEOUT)
 		Expect(routing_helpers.GetDomainGuid(domainName, DEFAULT_TIMEOUT)).NotTo(BeEmpty())
 	})
 
@@ -120,26 +120,26 @@ func newUaaClient(routerApiConfig helpers.RoutingConfig, logger lager.Logger) ua
 	return uaaClient
 }
 
-func getRouterGroupGuid(routingApiClient routing_api.Client) string {
+func getRouterGroupName(routingApiClient routing_api.Client) string {
 	os.Setenv("CF_TRACE", "true")
-	var routerGroupGuid string
+	var routerGroupName string
 	cfworkflow_helpers.AsUser(context.AdminUserContext(), context.ShortTimeout(), func() {
 		routerGroupOutput := cf.Cf("router-groups").Wait(context.ShortTimeout()).Out.Contents()
-		routerGroupGuid = grabGuid(string(routerGroupOutput))
+		routerGroupName = grabName(string(routerGroupOutput))
 	})
 	os.Setenv("CF_TRACE", "false")
-	return routerGroupGuid
+	return routerGroupName
 }
 
-func grabGuid(logLines string) string {
+func grabName(logLines string) string {
 	defer GinkgoRecover()
 	var re *regexp.Regexp
 
-	re = regexp.MustCompile("guid\":\"([0-9a-fA-F-]*)\"")
+	re = regexp.MustCompile("name\":\"([a-zA-Z-]*)\"")
 
 	matches := re.FindStringSubmatch(logLines)
 
 	Expect(len(matches)).To(BeNumerically(">=", 2))
-	// guid
+	// name
 	return matches[1]
 }

@@ -51,7 +51,7 @@ var _ = Describe("Tcp Routing", func() {
 			helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
 		})
 
-		It("maps a single external port to an application's container port", func() {
+		FIt("maps a single external port to an application's container port", func() {
 			for _, routerAddr := range routingConfig.Addresses {
 				Eventually(func() error {
 					_, err := sendAndReceive(routerAddr, externalPort1)
