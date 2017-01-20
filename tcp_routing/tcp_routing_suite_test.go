@@ -37,13 +37,9 @@ func TestTcpRouting(t *testing.T) {
 	if routingConfig.CfPushTimeout > 0 {
 		CF_PUSH_TIMEOUT = routingConfig.CfPushTimeout * time.Second
 	}
-
 	componentName := "TCP Routing"
 
 	rs := []Reporter{}
-
-	context = cfworkflow_helpers.NewContext(routingConfig.Config)
-	environment = cfworkflow_helpers.NewEnvironment(context)
 
 	if routingConfig.ArtifactsDirectory != "" {
 		cf_helpers.EnableCFTrace(routingConfig.Config, componentName)
@@ -69,6 +65,9 @@ var (
 )
 
 var _ = BeforeSuite(func() {
+	context = cfworkflow_helpers.NewContext(routingConfig.Config)
+	environment = cfworkflow_helpers.NewEnvironment(context)
+
 	logger = lagertest.NewTestLogger("test")
 	routingApiClient = routing_api.NewClient(routingConfig.RoutingApiUrl, routingConfig.SkipSSLValidation)
 
@@ -80,13 +79,20 @@ var _ = BeforeSuite(func() {
 	_, err = routingApiClient.Routes()
 	Expect(err).ToNot(HaveOccurred(), "Routing API is unavailable")
 	domainName = fmt.Sprintf("%s.%s", generator.PrefixedRandomName("TCP", "DOMAIN"), routingConfig.AppsDomain)
-	cfworkflow_helpers.AsUser(context.AdminUserContext(), context.ShortTimeout(), func() {
-		routerGroupName := getRouterGroupName(routingApiClient)
-		routing_helpers.CreateSharedDomain(domainName, routerGroupName, DEFAULT_TIMEOUT)
-		Expect(routing_helpers.GetDomainGuid(domainName, DEFAULT_TIMEOUT)).NotTo(BeEmpty())
-	})
+
+	adminContext := context.AdminUserContext()
+	regUser := context.RegularUserContext()
+	adminContext.Org = regUser.Org
+	adminContext.Space = regUser.Space
 
 	environment.Setup()
+
+	cfworkflow_helpers.AsUser(adminContext, context.ShortTimeout(), func() {
+		routerGroupName := getRouterGroupName(routingApiClient)
+		routing_helpers.CreateSharedDomain(domainName, routerGroupName, DEFAULT_TIMEOUT)
+		routing_helpers.VerifySharedDomain(domainName, DEFAULT_TIMEOUT)
+	})
+
 })
 
 var _ = AfterSuite(func() {
