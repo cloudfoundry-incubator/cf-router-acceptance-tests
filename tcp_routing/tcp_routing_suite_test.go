@@ -2,11 +2,8 @@ package tcp_routing_test
 
 import (
 	"fmt"
-	"os"
-	"regexp"
 	"time"
 
-	"code.cloudfoundry.org/clock"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	. "github.com/onsi/ginkgo"
@@ -18,9 +15,6 @@ import (
 	routing_helpers "code.cloudfoundry.org/cf-routing-test-helpers/helpers"
 	"code.cloudfoundry.org/routing-acceptance-tests/helpers"
 	"code.cloudfoundry.org/routing-api"
-	uaaclient "code.cloudfoundry.org/uaa-go-client"
-	uaaconfig "code.cloudfoundry.org/uaa-go-client/config"
-	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/generator"
 	cf_helpers "github.com/cloudfoundry-incubator/cf-test-helpers/helpers"
 	cfworkflow_helpers "github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
@@ -72,7 +66,7 @@ var _ = BeforeSuite(func() {
 	logger = lagertest.NewTestLogger("test")
 	routingApiClient = routing_api.NewClient(routingConfig.RoutingApiUrl, routingConfig.SkipSSLValidation)
 
-	uaaClient := newUaaClient(routingConfig, logger)
+	uaaClient := helpers.NewUaaClient(routingConfig, logger)
 	token, err := uaaClient.FetchToken(true)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -89,7 +83,7 @@ var _ = BeforeSuite(func() {
 	environment.Setup()
 
 	cfworkflow_helpers.AsUser(adminContext, context.ShortTimeout(), func() {
-		routerGroupName := getRouterGroupName(routingApiClient)
+		routerGroupName := helpers.GetRouterGroupName(routingApiClient, context)
 		routing_helpers.CreateSharedDomain(domainName, routerGroupName, DEFAULT_TIMEOUT)
 		routing_helpers.VerifySharedDomain(domainName, DEFAULT_TIMEOUT)
 	})
@@ -103,50 +97,3 @@ var _ = AfterSuite(func() {
 	environment.Teardown()
 	CleanupBuildArtifacts()
 })
-
-func newUaaClient(routerApiConfig helpers.RoutingConfig, logger lager.Logger) uaaclient.Client {
-
-	tokenURL := fmt.Sprintf("%s:%d", routerApiConfig.OAuth.TokenEndpoint, routerApiConfig.OAuth.Port)
-
-	cfg := &uaaconfig.Config{
-		UaaEndpoint:           tokenURL,
-		SkipVerification:      routerApiConfig.SkipSSLValidation,
-		ClientName:            routerApiConfig.OAuth.ClientName,
-		ClientSecret:          routerApiConfig.OAuth.ClientSecret,
-		MaxNumberOfRetries:    3,
-		RetryInterval:         500 * time.Millisecond,
-		ExpirationBufferInSec: 30,
-	}
-
-	uaaClient, err := uaaclient.NewClient(logger, cfg, clock.NewClock())
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = uaaClient.FetchToken(true)
-	Expect(err).ToNot(HaveOccurred())
-
-	return uaaClient
-}
-
-func getRouterGroupName(routingApiClient routing_api.Client) string {
-	os.Setenv("CF_TRACE", "true")
-	var routerGroupName string
-	cfworkflow_helpers.AsUser(context.AdminUserContext(), context.ShortTimeout(), func() {
-		routerGroupOutput := cf.Cf("router-groups").Wait(context.ShortTimeout()).Out.Contents()
-		routerGroupName = grabName(string(routerGroupOutput))
-	})
-	os.Setenv("CF_TRACE", "false")
-	return routerGroupName
-}
-
-func grabName(logLines string) string {
-	defer GinkgoRecover()
-	var re *regexp.Regexp
-
-	re = regexp.MustCompile("name\":\"([a-zA-Z-]*)\"")
-
-	matches := re.FindStringSubmatch(logLines)
-
-	Expect(len(matches)).To(BeNumerically(">=", 2))
-	// name
-	return matches[1]
-}
