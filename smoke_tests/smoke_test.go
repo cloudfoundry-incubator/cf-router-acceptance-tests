@@ -26,7 +26,7 @@ var (
 	appName         string
 	tcpSampleGolang = assets.NewAssets().TcpSampleGolang
 	adminContext    cfworkflow_helpers.UserContext
-	context         *cfworkflow_helpers.ConfiguredContext
+	context         cfworkflow_helpers.SuiteContext
 	environment     *cfworkflow_helpers.Environment
 )
 var _ = Describe("SmokeTests", func() {
@@ -68,41 +68,42 @@ var _ = Describe("SmokeTests", func() {
 				domainName = fmt.Sprintf("%s.%s", generator.PrefixedRandomName("TCP", "DOMAIN"), routingConfig.AppsDomain)
 
 				cfworkflow_helpers.AsUser(adminContext, context.ShortTimeout(), func() {
-					routerGroupName := helpers.GetRouterGroupName(routingApiClient)
+					routerGroupName := helpers.GetRouterGroupName(routingApiClient, context)
 					routing_helpers.CreateSharedDomain(domainName, routerGroupName, DEFAULT_TIMEOUT)
 					routing_helpers.VerifySharedDomain(domainName, DEFAULT_TIMEOUT)
 				})
 			}
+			appName = routing_helpers.GenerateAppName()
+			helpers.UpdateOrgQuota(context)
 		})
 
 		It("map tcp route to app successfully ", func() {
 			// create a tcp route, map tcp route to http app , curl app to get 200
-			spaceName = context.RegularUserContext().Space
 
-			routing_helpers.PushAppNoStart(appName, tcpSampleReceiver, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "-c", cmd, "--no-route")
+			routing_helpers.PushAppNoStart(appName, tcpSampleGolang, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "--no-route")
 			routing_helpers.EnableDiego(appName, DEFAULT_TIMEOUT)
 			routing_helpers.MapRandomTcpRouteToApp(appName, domainName, DEFAULT_TIMEOUT)
 			routing_helpers.StartApp(appName, DEFAULT_TIMEOUT)
-			port := helpers.GetPortFromAppsInfo(appName, domainName)
+			port := routing_helpers.GetPortFromAppsInfo(appName, domainName, DEFAULT_TIMEOUT)
 
-			client := http.DefaultClient{}
-			resp, err := client.Do(fmt.Sprintf("http://%s:%s", domainName, port))
+			appUrl := fmt.Sprintf("https://%s:%s", domainName, port)
+			resp, err := http.Get(appUrl)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-			routing_helpers.DeleteTcpRoute(domainName, port, timeout)
+			routing_helpers.DeleteTcpRoute(domainName, port, DEFAULT_TIMEOUT)
 
-			resp, err := client.Do(fmt.Sprintf("http://%s:%s", domainName, port))
+			resp, err = http.Get(appUrl)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusBadGateway))
 		})
 	})
 
 	AfterEach(func() {
-		routing_helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
-		if routingConfig.TcpAppDomain == "" {
-			routing_helpers.DeleteSharedDomain(domainName, DEFAULT_TIMEOUT)
-		}
-		environment.Teardown()
+		// routing_helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
+		// if routingConfig.TcpAppDomain == "" {
+		// 	routing_helpers.DeleteSharedDomain(domainName, DEFAULT_TIMEOUT)
+		// }
+		// environment.Teardown()
 	})
 })

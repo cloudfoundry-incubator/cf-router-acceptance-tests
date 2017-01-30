@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"code.cloudfoundry.org/cf-routing-test-helpers/helpers"
 	"code.cloudfoundry.org/clock"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/routing-api"
@@ -108,6 +109,18 @@ func GrabName(logLines string) string {
 	Expect(len(matches)).To(BeNumerically(">=", 2))
 	// name
 	return matches[1]
+}
+
+func UpdateOrgQuota(context cfworkflow_helpers.SuiteContext) {
+	os.Setenv("CF_TRACE", "false")
+	cfworkflow_helpers.AsUser(context.AdminUserContext(), context.ShortTimeout(), func() {
+		orgGuid := cf.Cf("org", context.RegularUserContext().Org, "--guid").Wait(context.ShortTimeout()).Out.Contents()
+		quotaUrl, err := helpers.GetOrgQuotaDefinitionUrl(string(orgGuid), context.ShortTimeout())
+		Expect(err).NotTo(HaveOccurred())
+
+		cf.Cf("curl", quotaUrl, "-X", "PUT", "-d", "'{\"total_reserved_route_ports\":-1}'").Wait(context.ShortTimeout())
+	})
+	os.Setenv("CF_TRACE", "true")
 }
 
 func loadConfigJsonFromPath() RoutingConfig {

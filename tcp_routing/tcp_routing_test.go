@@ -7,11 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/cf-routing-test-helpers/helpers"
+	routing_helpers "code.cloudfoundry.org/cf-routing-test-helpers/helpers"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/routing-acceptance-tests/helpers"
 	"code.cloudfoundry.org/routing-acceptance-tests/helpers/assets"
-	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
-	cfworkflow_helpers "github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -19,7 +18,7 @@ import (
 
 var _ = Describe("Tcp Routing", func() {
 	BeforeEach(func() {
-		updateOrgQuota(context)
+		helpers.UpdateOrgQuota(context)
 	})
 
 	Context("single app port", func() {
@@ -32,23 +31,23 @@ var _ = Describe("Tcp Routing", func() {
 		)
 
 		BeforeEach(func() {
-			appName = helpers.GenerateAppName()
+			appName = routing_helpers.GenerateAppName()
 			serverId1 = "server1"
 			cmd := fmt.Sprintf("tcp-droplet-receiver --serverId=%s", serverId1)
 			spaceName = context.RegularUserContext().Space
-			externalPort1 = helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
+			externalPort1 = routing_helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
 
 			// Uses --no-route flag so there is no HTTP route
-			helpers.PushAppNoStart(appName, tcpDropletReceiver, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "-c", cmd, "--no-route")
-			helpers.EnableDiego(appName, DEFAULT_TIMEOUT)
-			helpers.UpdatePorts(appName, []uint16{3333}, DEFAULT_TIMEOUT)
-			helpers.CreateRouteMapping(appName, "", externalPort1, 3333, DEFAULT_TIMEOUT)
-			helpers.StartApp(appName, DEFAULT_TIMEOUT)
+			routing_helpers.PushAppNoStart(appName, tcpDropletReceiver, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "-c", cmd, "--no-route")
+			routing_helpers.EnableDiego(appName, DEFAULT_TIMEOUT)
+			routing_helpers.UpdatePorts(appName, []uint16{3333}, DEFAULT_TIMEOUT)
+			routing_helpers.CreateRouteMapping(appName, "", externalPort1, 3333, DEFAULT_TIMEOUT)
+			routing_helpers.StartApp(appName, DEFAULT_TIMEOUT)
 		})
 
 		AfterEach(func() {
-			helpers.AppReport(appName, DEFAULT_TIMEOUT)
-			helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
+			routing_helpers.AppReport(appName, DEFAULT_TIMEOUT)
+			routing_helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
 		})
 
 		It("maps a single external port to an application's container port", func() {
@@ -71,21 +70,21 @@ var _ = Describe("Tcp Routing", func() {
 			)
 
 			BeforeEach(func() {
-				secondAppName = helpers.GenerateAppName()
+				secondAppName = routing_helpers.GenerateAppName()
 				serverId2 = "server2"
 				cmd := fmt.Sprintf("tcp-droplet-receiver --serverId=%s", serverId2)
 
 				// Uses --no-route flag so there is no HTTP route
-				helpers.PushAppNoStart(secondAppName, tcpDropletReceiver, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "-c", cmd, "--no-route")
-				helpers.EnableDiego(secondAppName, DEFAULT_TIMEOUT)
-				helpers.UpdatePorts(secondAppName, []uint16{3333}, DEFAULT_TIMEOUT)
-				helpers.CreateRouteMapping(secondAppName, "", externalPort1, 3333, DEFAULT_TIMEOUT)
-				helpers.StartApp(secondAppName, DEFAULT_TIMEOUT)
+				routing_helpers.PushAppNoStart(secondAppName, tcpDropletReceiver, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "-c", cmd, "--no-route")
+				routing_helpers.EnableDiego(secondAppName, DEFAULT_TIMEOUT)
+				routing_helpers.UpdatePorts(secondAppName, []uint16{3333}, DEFAULT_TIMEOUT)
+				routing_helpers.CreateRouteMapping(secondAppName, "", externalPort1, 3333, DEFAULT_TIMEOUT)
+				routing_helpers.StartApp(secondAppName, DEFAULT_TIMEOUT)
 			})
 
 			AfterEach(func() {
-				helpers.AppReport(secondAppName, DEFAULT_TIMEOUT)
-				helpers.DeleteApp(secondAppName, DEFAULT_TIMEOUT)
+				routing_helpers.AppReport(secondAppName, DEFAULT_TIMEOUT)
+				routing_helpers.DeleteApp(secondAppName, DEFAULT_TIMEOUT)
 			})
 
 			It("maps single external port to both applications", func() {
@@ -117,8 +116,8 @@ var _ = Describe("Tcp Routing", func() {
 			)
 
 			BeforeEach(func() {
-				externalPort2 = helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
-				helpers.CreateRouteMapping(appName, "", externalPort2, 3333, DEFAULT_TIMEOUT)
+				externalPort2 = routing_helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
+				routing_helpers.CreateRouteMapping(appName, "", externalPort2, 3333, DEFAULT_TIMEOUT)
 			})
 
 			It("routes traffic from two external ports to the app", func() {
@@ -151,30 +150,30 @@ var _ = Describe("Tcp Routing", func() {
 		)
 
 		BeforeEach(func() {
-			appName = helpers.GenerateAppName()
+			appName = routing_helpers.GenerateAppName()
 			serverId1 = "server1"
 			appPort1 = 3434
 			appPort2 = 3535
 			cmd := fmt.Sprintf("tcp-sample-receiver --address=0.0.0.0:%d,0.0.0.0:%d --serverId=%s", appPort1, appPort2, serverId1)
 			spaceName = context.RegularUserContext().Space
-			externalPort1 = helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
+			externalPort1 = routing_helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
 
 			// Uses --no-route flag so there is no HTTP route
-			helpers.PushAppNoStart(appName, tcpSampleReceiver, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "-c", cmd, "--no-route")
-			helpers.EnableDiego(appName, DEFAULT_TIMEOUT)
-			helpers.UpdatePorts(appName, []uint16{appPort1, appPort2}, DEFAULT_TIMEOUT)
-			helpers.CreateRouteMapping(appName, "", externalPort1, appPort1, DEFAULT_TIMEOUT)
-			helpers.StartApp(appName, DEFAULT_TIMEOUT)
+			routing_helpers.PushAppNoStart(appName, tcpSampleReceiver, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "-c", cmd, "--no-route")
+			routing_helpers.EnableDiego(appName, DEFAULT_TIMEOUT)
+			routing_helpers.UpdatePorts(appName, []uint16{appPort1, appPort2}, DEFAULT_TIMEOUT)
+			routing_helpers.CreateRouteMapping(appName, "", externalPort1, appPort1, DEFAULT_TIMEOUT)
+			routing_helpers.StartApp(appName, DEFAULT_TIMEOUT)
 		})
 
 		AfterEach(func() {
-			helpers.AppReport(appName, DEFAULT_TIMEOUT)
-			helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
+			routing_helpers.AppReport(appName, DEFAULT_TIMEOUT)
+			routing_helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
 		})
 
 		Context("single external port with multiple app ports", func() {
 			BeforeEach(func() {
-				helpers.CreateRouteMapping(appName, "", externalPort1, appPort2, DEFAULT_TIMEOUT)
+				routing_helpers.CreateRouteMapping(appName, "", externalPort1, appPort2, DEFAULT_TIMEOUT)
 			})
 
 			It("should switch between ports", func() {
@@ -206,8 +205,8 @@ var _ = Describe("Tcp Routing", func() {
 			)
 
 			BeforeEach(func() {
-				externalPort2 = helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
-				helpers.CreateRouteMapping(appName, "", externalPort2, appPort2, DEFAULT_TIMEOUT)
+				externalPort2 = routing_helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
+				routing_helpers.CreateRouteMapping(appName, "", externalPort2, appPort2, DEFAULT_TIMEOUT)
 			})
 
 			It("should maps first external port to the first app port", func() {
@@ -294,15 +293,4 @@ func sendAndReceive(addr string, externalPort uint16) (string, error) {
 	logger.Info("read-message", lager.Data{"address": conn.RemoteAddr(), "message": string(buff[:n])})
 
 	return string(buff), conn.Close()
-}
-
-func updateOrgQuota(context cfworkflow_helpers.SuiteContext) {
-	cfworkflow_helpers.AsUser(context.AdminUserContext(), context.ShortTimeout(), func() {
-		orgGuid := cf.Cf("org", context.RegularUserContext().Org, "--guid").Wait(context.ShortTimeout()).Out.Contents()
-
-		quotaUrl, err := helpers.GetOrgQuotaDefinitionUrl(string(orgGuid), context.ShortTimeout())
-		Expect(err).NotTo(HaveOccurred())
-
-		cf.Cf("curl", quotaUrl, "-X", "PUT", "-d", "'{\"total_reserved_route_ports\":-1}'").Wait(context.ShortTimeout())
-	})
 }
