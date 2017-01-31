@@ -30,6 +30,7 @@ type RoutingConfig struct {
 	OAuth             *OAuthConfig `json:"oauth"`
 	IncludeHttpRoutes bool         `json:"include_http_routes"`
 	TcpAppDomain      string       `json:"tcp_app_domain"`
+	LBConfigured      bool         `json:"lb_configured"`
 }
 
 type OAuthConfig struct {
