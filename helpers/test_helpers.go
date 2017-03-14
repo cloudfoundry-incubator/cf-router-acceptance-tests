@@ -24,7 +24,7 @@ import (
 )
 
 type RoutingConfig struct {
-	config.Config
+	*config.Config
 	RoutingApiUrl     string       `json:"-"` //"-" is used for ignoring field
 	Addresses         []string     `json:"addresses"`
 	OAuth             *OAuthConfig `json:"oauth"`
@@ -88,11 +88,11 @@ func NewUaaClient(routerApiConfig RoutingConfig, logger lager.Logger) uaaclient.
 	return uaaClient
 }
 
-func GetRouterGroupName(context cfworkflow_helpers.SuiteContext) string {
+func GetRouterGroupName(context cfworkflow_helpers.UserContext) string {
 	os.Setenv("CF_TRACE", "false")
 	var routerGroupName string
-	cfworkflow_helpers.AsUser(context.AdminUserContext(), context.ShortTimeout(), func() {
-		routerGroupOutput := cf.Cf("router-groups").Wait(context.ShortTimeout()).Out.Contents()
+	cfworkflow_helpers.AsUser(context, context.Timeout, func() {
+		routerGroupOutput := cf.Cf("router-groups").Wait(context.Timeout).Out.Contents()
 		routerGroupName = GrabName(string(routerGroupOutput))
 	})
 	return routerGroupName
@@ -111,14 +111,14 @@ func GrabName(logLines string) string {
 	return names[0]
 }
 
-func UpdateOrgQuota(context cfworkflow_helpers.SuiteContext) {
+func UpdateOrgQuota(context cfworkflow_helpers.UserContext) {
 	os.Setenv("CF_TRACE", "false")
-	cfworkflow_helpers.AsUser(context.AdminUserContext(), context.ShortTimeout(), func() {
-		orgGuid := cf.Cf("org", context.RegularUserContext().Org, "--guid").Wait(context.ShortTimeout()).Out.Contents()
-		quotaUrl, err := helpers.GetOrgQuotaDefinitionUrl(string(orgGuid), context.ShortTimeout())
+	cfworkflow_helpers.AsUser(context, context.Timeout, func() {
+		orgGuid := cf.Cf("org", context.Org, "--guid").Wait(context.Timeout).Out.Contents()
+		quotaUrl, err := helpers.GetOrgQuotaDefinitionUrl(string(orgGuid), context.Timeout)
 		Expect(err).NotTo(HaveOccurred())
 
-		cf.Cf("curl", quotaUrl, "-X", "PUT", "-d", "'{\"total_reserved_route_ports\":-1}'").Wait(context.ShortTimeout())
+		cf.Cf("curl", quotaUrl, "-X", "PUT", "-d", "'{\"total_reserved_route_ports\":-1}'").Wait(context.Timeout)
 	})
 }
 

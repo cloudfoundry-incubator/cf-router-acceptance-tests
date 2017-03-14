@@ -25,11 +25,11 @@ func TestTcpRouting(t *testing.T) {
 
 	routingConfig = helpers.LoadConfig()
 	if routingConfig.DefaultTimeout > 0 {
-		DEFAULT_TIMEOUT = routingConfig.DefaultTimeout * time.Second
+		DEFAULT_TIMEOUT = time.Duration(routingConfig.DefaultTimeout) * time.Second
 	}
 
 	if routingConfig.CfPushTimeout > 0 {
-		CF_PUSH_TIMEOUT = routingConfig.CfPushTimeout * time.Second
+		CF_PUSH_TIMEOUT = time.Duration(routingConfig.CfPushTimeout) * time.Second
 	}
 	componentName := "TCP Routing"
 
@@ -54,14 +54,12 @@ var (
 	adminContext     cfworkflow_helpers.UserContext
 	routingConfig    helpers.RoutingConfig
 	routingApiClient routing_api.Client
-	context          cfworkflow_helpers.SuiteContext
-	environment      *cfworkflow_helpers.Environment
+	environment      *cfworkflow_helpers.ReproducibleTestSuiteSetup
 	logger           lager.Logger
 )
 
 var _ = BeforeSuite(func() {
-	context = cfworkflow_helpers.NewContext(routingConfig.Config)
-	environment = cfworkflow_helpers.NewEnvironment(context)
+	environment = cfworkflow_helpers.NewTestSuiteSetup(routingConfig.Config)
 
 	logger = lagertest.NewTestLogger("test")
 	routingApiClient = routing_api.NewClient(routingConfig.RoutingApiUrl, routingConfig.SkipSSLValidation)
@@ -75,15 +73,15 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred(), "Routing API is unavailable")
 	domainName = fmt.Sprintf("%s.%s", generator.PrefixedRandomName("TCP", "DOMAIN"), routingConfig.AppsDomain)
 
-	adminContext = context.AdminUserContext()
-	regUser := context.RegularUserContext()
+	adminContext = environment.AdminUserContext()
+	regUser := environment.RegularUserContext()
+	adminContext.TestSpace = regUser.TestSpace
 	adminContext.Org = regUser.Org
 	adminContext.Space = regUser.Space
 
 	environment.Setup()
-
-	cfworkflow_helpers.AsUser(adminContext, context.ShortTimeout(), func() {
-		routerGroupName := helpers.GetRouterGroupName(context)
+	cfworkflow_helpers.AsUser(adminContext, adminContext.Timeout, func() {
+		routerGroupName := helpers.GetRouterGroupName(adminContext)
 		routing_helpers.CreateSharedDomain(domainName, routerGroupName, DEFAULT_TIMEOUT)
 		routing_helpers.VerifySharedDomain(domainName, DEFAULT_TIMEOUT)
 	})
@@ -91,7 +89,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cfworkflow_helpers.AsUser(adminContext, context.ShortTimeout(), func() {
+	cfworkflow_helpers.AsUser(adminContext, adminContext.Timeout, func() {
 		routing_helpers.DeleteSharedDomain(domainName, DEFAULT_TIMEOUT)
 	})
 	environment.Teardown()

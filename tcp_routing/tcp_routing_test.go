@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("Tcp Routing", func() {
 	BeforeEach(func() {
-		helpers.UpdateOrgQuota(context)
+		helpers.UpdateOrgQuota(adminContext)
 	})
 
 	Context("single app port", func() {
@@ -34,7 +34,7 @@ var _ = Describe("Tcp Routing", func() {
 			appName = routing_helpers.GenerateAppName()
 			serverId1 = "server1"
 			cmd := fmt.Sprintf("tcp-droplet-receiver --serverId=%s", serverId1)
-			spaceName = context.RegularUserContext().Space
+			spaceName = environment.RegularUserContext().Space
 			externalPort1 = routing_helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
 
 			// Uses --no-route flag so there is no HTTP route
@@ -46,11 +46,11 @@ var _ = Describe("Tcp Routing", func() {
 		})
 
 		AfterEach(func() {
-			routing_helpers.AppReport(appName, DEFAULT_TIMEOUT)
-			routing_helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
+			routing_helpers.AppReport(appName, 2*time.Minute)
+			routing_helpers.DeleteApp(appName, time.Duration(2)*time.Minute)
 		})
 
-		It("maps a single external port to an application's container port", func() {
+		FIt("maps a single external port to an application's container port", func() {
 			for _, routerAddr := range routingConfig.Addresses {
 				Eventually(func() error {
 					_, err := sendAndReceive(routerAddr, externalPort1)
@@ -155,11 +155,11 @@ var _ = Describe("Tcp Routing", func() {
 			appPort1 = 3434
 			appPort2 = 3535
 			cmd := fmt.Sprintf("tcp-sample-receiver --address=0.0.0.0:%d,0.0.0.0:%d --serverId=%s", appPort1, appPort2, serverId1)
-			spaceName = context.RegularUserContext().Space
+			spaceName = environment.RegularUserContext().Space
 			externalPort1 = routing_helpers.CreateTcpRouteWithRandomPort(spaceName, domainName, DEFAULT_TIMEOUT)
 
 			// Uses --no-route flag so there is no HTTP route
-			routing_helpers.PushAppNoStart(appName, tcpSampleReceiver, routingConfig.GoBuildpackName, domainName, CF_PUSH_TIMEOUT, "256M", "-c", cmd, "--no-route")
+			routing_helpers.PushAppNoStart(appName, tcpSampleReceiver, routingConfig.GoBuildpackName, domainName, 2*time.Minute, "256M", "-c", cmd, "--no-route")
 			routing_helpers.EnableDiego(appName, DEFAULT_TIMEOUT)
 			routing_helpers.UpdatePorts(appName, []uint16{appPort1, appPort2}, DEFAULT_TIMEOUT)
 			routing_helpers.CreateRouteMapping(appName, "", externalPort1, appPort1, DEFAULT_TIMEOUT)

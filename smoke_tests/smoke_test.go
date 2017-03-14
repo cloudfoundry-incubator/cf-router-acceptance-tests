@@ -22,43 +22,42 @@ var (
 	domainName      string
 	tcpSampleGolang = assets.NewAssets().TcpSampleGolang
 	adminContext    cfworkflow_helpers.UserContext
+	regUser         cfworkflow_helpers.UserContext
 )
 
 var _ = Describe("SmokeTests", func() {
 
 	BeforeEach(func() {
-		adminContext = context.AdminUserContext()
-		regUser := context.RegularUserContext()
+		adminContext = environment.AdminUserContext()
+		regUser := environment.RegularUserContext()
 		adminContext.Org = regUser.Org
 		adminContext.Space = regUser.Space
 
-		environment.Setup()
-
 		if routingConfig.TcpAppDomain != "" {
 			domainName = routingConfig.TcpAppDomain
-			cfworkflow_helpers.AsUser(adminContext, context.ShortTimeout(), func() {
+			cfworkflow_helpers.AsUser(adminContext, adminContext.Timeout, func() {
 				routing_helpers.VerifySharedDomain(routingConfig.TcpAppDomain, DEFAULT_TIMEOUT)
 			})
 			routerIps = append(routerIps, domainName)
 		} else {
 			domainName = fmt.Sprintf("%s.%s", generator.PrefixedRandomName("TCP", "DOMAIN"), routingConfig.AppsDomain)
 
-			cfworkflow_helpers.AsUser(adminContext, context.ShortTimeout(), func() {
-				routerGroupName := helpers.GetRouterGroupName(context)
+			cfworkflow_helpers.AsUser(adminContext, adminContext.Timeout, func() {
+				routerGroupName := helpers.GetRouterGroupName(adminContext)
 				routing_helpers.CreateSharedDomain(domainName, routerGroupName, DEFAULT_TIMEOUT)
 				routing_helpers.VerifySharedDomain(domainName, DEFAULT_TIMEOUT)
 			})
 			routerIps = routingConfig.Addresses
 		}
 		appName = routing_helpers.GenerateAppName()
-		helpers.UpdateOrgQuota(context)
+		helpers.UpdateOrgQuota(adminContext)
 	})
 
 	AfterEach(func() {
 		routing_helpers.AppReport(appName, DEFAULT_TIMEOUT)
 		routing_helpers.DeleteApp(appName, DEFAULT_TIMEOUT)
 		if routingConfig.TcpAppDomain == "" {
-			cfworkflow_helpers.AsUser(adminContext, context.ShortTimeout(), func() {
+			cfworkflow_helpers.AsUser(adminContext, adminContext.Timeout, func() {
 				routing_helpers.DeleteSharedDomain(domainName, DEFAULT_TIMEOUT)
 			})
 		}
