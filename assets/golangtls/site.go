@@ -67,6 +67,7 @@ func main() {
 	servCertTmpl.KeyUsage = x509.KeyUsageDigitalSignature
 	servCertTmpl.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 	servCertTmpl.IPAddresses = []net.IP{net.ParseIP("127.0.0.1")}
+	servCertTmpl.Subject = pkix.Name{CommonName: "appGuid123"}
 
 	// create a certificate which wraps the server's public key, sign it with the root private key
 	_, servCertPEM, err := CreateCert(servCertTmpl, rootCert, &servKey.PublicKey, rootKey)
