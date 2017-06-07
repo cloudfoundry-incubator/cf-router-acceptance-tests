@@ -91,16 +91,20 @@ func main() {
 
 	http.HandleFunc("/", hello)
 	port := os.Getenv("PORT")
+	go func() {
+		fmt.Printf("Listening on %s...\n", port)
+		http.ListenAndServe("127.0.0.1:"+port, nil)
+	}()
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(rootCertPEM)
 	tlsConfig := &tls.Config{
 		RootCAs: certPool,
 	}
 	server := http.Server{
-		Addr:      fmt.Sprintf(":%s", port),
+		Addr:      "127.0.0.1:4443",
 		TLSConfig: tlsConfig,
 	}
-	fmt.Printf("Listening on %s...", port)
+	fmt.Println("TLS Listening on 4443...")
 	err = server.ListenAndServeTLS("server.crt", "server.key")
 	if err != nil {
 		panic(err)
@@ -108,8 +112,8 @@ func main() {
 }
 
 func hello(res http.ResponseWriter, req *http.Request) {
-	fmt.Println("Recieved request ", time.Now())
-	fmt.Fprintln(res, "go, world")
+	//fmt.Printf("request %+v \n", req)
+	res.Write([]byte("Called hello..."))
 }
 
 func certWriter(encodedPEM []byte, name string) error {
