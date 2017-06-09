@@ -88,12 +88,17 @@ func curlAppSuccess(domainName, port string) {
 
 func curlAppFailure(domainName, port string) {
 	appUrl := fmt.Sprintf("%s:%s", domainName, port)
-	Eventually(func() error {
-		fmt.Fprintf(os.Stdout, "\nConnecting to URL %s... \n", appUrl)
-		_, err := net.Dial("tcp", appUrl)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "\nReceived response %s\n", err.Error())
-		}
-		return err
-	}, DEFAULT_TIMEOUT).ShouldNot(BeNil())
+	fmt.Fprintf(os.Stdout, "\nConnecting to URL %s... \n", appUrl)
+	conn, err := net.Dial("tcp", appUrl)
+	defer conn.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\nReceived error while connecting %s\n", err.Error())
+		return
+	}
+	connBytes := []byte("test-bytes")
+	_, err = conn.Write(connBytes)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\nReceived error while writing to connection %s\n", err.Error())
+		return
+	}
 }
