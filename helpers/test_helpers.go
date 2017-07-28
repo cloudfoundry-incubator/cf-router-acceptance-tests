@@ -49,6 +49,7 @@ type OAuthConfig struct {
 type XFCC struct {
 	AlwaysForward []string `json:"always_forward"`
 	Forward       []string `json:"forward"`
+	SanitizeSet   []string `json:"sanitize_set"`
 }
 
 func loadDefaultTimeout(conf *RoutingConfig) {

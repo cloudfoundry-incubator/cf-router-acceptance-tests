@@ -4,7 +4,7 @@ set -e -x
 
 go vet ./...
 go install -v github.com/onsi/ginkgo/ginkgo
-packages=("http_routes" "tcp_routing" "smoke_tests")
+packages=("http_routes" "tcp_routing" "smoke_tests" "http_routing")
 for i in "${packages[@]}"
 do
   ginkgo -r -race -slowSpecThreshold=120 "$@" "$i"
