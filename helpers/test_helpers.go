@@ -1,8 +1,15 @@
 package helpers
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
+	"net"
 	"os"
 	"time"
 
@@ -29,6 +36,7 @@ type RoutingConfig struct {
 	TcpAppDomain      string       `json:"tcp_apps_domain"`
 	LBConfigured      bool         `json:"lb_configured"`
 	TCPRouterGroup    string       `json:"tcp_router_group"`
+	Xfcc              XFCC         `json:"xfcc"`
 }
 
 type OAuthConfig struct {
@@ -36,6 +44,11 @@ type OAuthConfig struct {
 	ClientName    string `json:"client_name"`
 	ClientSecret  string `json:"client_secret"`
 	Port          int    `json:"port"`
+}
+
+type XFCC struct {
+	AlwaysForward []string `json:"always_forward"`
+	Forward       []string `json:"forward"`
 }
 
 func loadDefaultTimeout(conf *RoutingConfig) {
@@ -156,4 +169,48 @@ func RandomName() string {
 	}
 
 	return guid.String()
+}
+
+func CreateCertDER(cname string) (*rsa.PrivateKey, []byte) {
+	// generate a random serial number (a real cert authority would have some logic behind this)
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	Expect(err).ToNot(HaveOccurred())
+
+	subject := pkix.Name{Organization: []string{"xyz, Inc."}}
+	if cname != "" {
+		subject.CommonName = cname
+	}
+
+	tmpl := x509.Certificate{
+		SerialNumber:          serialNumber,
+		Subject:               subject,
+		SignatureAlgorithm:    x509.SHA256WithRSA,
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour), // valid for an hour
+		BasicConstraintsValid: true,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		IsCA:                  true,
+	}
+
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	Expect(err).ToNot(HaveOccurred())
+	certDER, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &privKey.PublicKey, privKey)
+	Expect(err).ToNot(HaveOccurred())
+	return privKey, certDER
+}
+
+func CreateKeyPair(cname string) (keyPEM, certPEM []byte) {
+	privKey, certDER := CreateCertDER(cname)
+
+	b := pem.Block{Type: "CERTIFICATE", Bytes: certDER}
+	certPEM = pem.EncodeToMemory(&b)
+	keyPEM = pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+	})
+
+	return
 }
