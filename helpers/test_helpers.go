@@ -24,6 +24,8 @@ import (
 	cfworkflow_helpers "github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
 	"github.com/nu7hatch/gouuid"
 
+	"strings"
+
 	. "github.com/onsi/gomega"
 )
 
@@ -50,6 +52,9 @@ type XFCC struct {
 	AlwaysForward []string `json:"always_forward"`
 	Forward       []string `json:"forward"`
 	SanitizeSet   []string `json:"sanitize_set"`
+	ClientPem     string   `json:"client_pem"`
+	CertPEM       []byte
+	KeyPEM        []byte
 }
 
 func loadDefaultTimeout(conf *RoutingConfig) {
@@ -89,7 +94,51 @@ func LoadConfig() RoutingConfig {
 
 	loadedConfig.RoutingApiUrl = fmt.Sprintf("https://%s", loadedConfig.ApiEndpoint)
 
+	loadedConfig.loadXFCC()
+
 	return loadedConfig
+}
+
+func (c *RoutingConfig) loadXFCC() {
+	certPEM, keyPEM := parsePEMBlocks([]byte(c.Xfcc.ClientPem))
+	c.Xfcc.CertPEM = certPEM
+	c.Xfcc.KeyPEM = keyPEM
+}
+
+func parsePEMBlocks(pemBlocks []byte) (certPEMBlock, keyPEMBlock []byte) {
+	for {
+		var block *pem.Block
+		block, pemBlocks = pem.Decode(pemBlocks)
+		if block == nil {
+			break
+		}
+
+		if isCertificate(block) {
+			certPEM := pem.EncodeToMemory(block)
+			certPEMBlock = append(certPEMBlock, certPEM...)
+		} else if isPrivateKey(block) {
+			keyPEM := pem.EncodeToMemory(block)
+			keyPEMBlock = append(keyPEMBlock, keyPEM...)
+		} else if isECParameters(block) {
+			continue
+		} else {
+			panic(fmt.Sprintf("error parsing router.tls_pem, found unsupported PEM block:\n%s", pem.EncodeToMemory(block)))
+		}
+	}
+
+	return
+}
+
+func isECParameters(block *pem.Block) bool {
+	return strings.Contains(block.Type, "PARAMETERS")
+}
+
+func isPrivateKey(block *pem.Block) bool {
+	return strings.Contains(block.Type, "PRIVATE KEY")
+}
+
+func isCertificate(block *pem.Block) bool {
+	return strings.Contains(block.Type, "CERTIFICATE")
 }
 
 func ValidateRouterGroupName(context cfworkflow_helpers.UserContext, tcpRouterGroup string) {
